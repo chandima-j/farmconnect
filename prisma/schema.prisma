@@ -1,0 +1,148 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  userType  String   @map("user_type") // FARMER, BUYER, ADMIN
+  avatarUrl String?  @map("avatar_url")
+  status    String   @default("ACTIVE") @map("status") // ACTIVE, SUSPENDED, PENDING
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  farmer       Farmer?
+  buyer        Buyer?
+  admin        Admin?
+  products     Product[]
+  buyerOrders  Order[]   @relation("BuyerOrders")
+  farmerOrders Order[]   @relation("FarmerOrders")
+  adminActions AdminAction[]
+
+  @@map("users")
+}
+
+model Farmer {
+  id          String   @id @default(cuid())
+  userId      String   @unique @map("user_id")
+  farmName    String   @map("farm_name")
+  location    String
+  description String
+  rating      Float    @default(0)
+  totalSales  Int      @default(0) @map("total_sales")
+  verified    Boolean  @default(false)
+  status      String   @default("PENDING") @map("status") // ACTIVE, SUSPENDED, PENDING
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("farmers")
+}
+
+model Buyer {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  address   String
+  phone     String
+  status    String   @default("ACTIVE") @map("status") // ACTIVE, SUSPENDED
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("buyers")
+}
+
+model Admin {
+  id          String   @id @default(cuid())
+  userId      String   @unique @map("user_id")
+  role        String   @default("MODERATOR") @map("role") // SUPER_ADMIN, ADMIN, MODERATOR
+  permissions String   @default("[]") @map("permissions") // JSON string
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admins")
+}
+
+model Product {
+  id              String   @id @default(cuid())
+  farmerId        String   @map("farmer_id")
+  name            String
+  description     String
+  category        String
+  price           Float
+  unit            String
+  imageUrl        String   @map("image_url")
+  stock           Int      @default(0)
+  organic         Boolean  @default(false)
+  harvestDate     DateTime @map("harvest_date")
+  location        String
+  rating          Float    @default(0)
+  reviewsCount    Int      @default(0) @map("reviews_count")
+  status          String   @default("PENDING") @map("status") // ACTIVE, PENDING, REJECTED, SUSPENDED
+  approvedBy      String?  @map("approved_by")
+  approvedAt      DateTime? @map("approved_at")
+  rejectionReason String?  @map("rejection_reason")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  farmer User @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+
+  @@map("products")
+}
+
+model Order {
+  id            String    @id @default(cuid())
+  buyerId       String    @map("buyer_id")
+  farmerId      String    @map("farmer_id")
+  items         String    // JSON string for SQLite
+  total         Float
+  status        String    @default("PENDING") @map("status") // PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED, REFUNDED
+  paymentStatus String    @default("PENDING") @map("payment_status") // PENDING, COMPLETED, FAILED, REFUNDED
+  paymentId     String?   @map("payment_id")
+  refundReason  String?   @map("refund_reason")
+  refundedBy    String?   @map("refunded_by")
+  refundedAt    DateTime? @map("refunded_at")
+  deliveryDate  DateTime? @map("delivery_date")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  buyer  User @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Cascade)
+  farmer User @relation("FarmerOrders", fields: [farmerId], references: [id], onDelete: Cascade)
+
+  @@map("orders")
+}
+
+model AdminAction {
+  id         String   @id @default(cuid())
+  adminId    String   @map("admin_id")
+  action     String
+  targetType String   @map("target_type")
+  targetId   String   @map("target_id")
+  details    String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("admin_actions")
+}

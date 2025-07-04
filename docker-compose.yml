@@ -1,0 +1,97 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: farmconnect-postgres
+    environment:
+      POSTGRES_DB: farmconnect
+      POSTGRES_USER: farmconnect
+      POSTGRES_PASSWORD: password123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - farmconnect-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U farmconnect"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: farmconnect-redis
+    command: redis-server --requirepass password123
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - farmconnect-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: farmconnect-api
+    environment:
+      - DATABASE_URL=postgresql://farmconnect:password123@postgres:5432/farmconnect
+      - JWT_SECRET=farmconnect-super-secret-jwt-key-2024
+      - REDIS_URL=redis://:password123@redis:6379
+      - NODE_ENV=development
+      - PORT=3001
+      - CLIENT_URL=http://localhost:5173
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    networks:
+      - farmconnect-network
+    volumes:
+      - ./server:/app/server
+      - ./prisma:/app/prisma
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: farmconnect-frontend
+    environment:
+      - VITE_API_URL=http://localhost:3001/api
+    ports:
+      - "5173:5173"
+    networks:
+      - farmconnect-network
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - ./vite.config.ts:/app/vite.config.ts
+    restart: unless-stopped
+    depends_on:
+      - api-server
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  farmconnect-network:
+    driver: bridge

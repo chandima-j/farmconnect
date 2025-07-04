@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserType {
+  FARMER
+  BUYER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  LOCKED
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+}
+
+model User {
+  id                String     @id @default(cuid())
+  email             String     @unique
+  password          String
+  name              String
+  userType          UserType   @map("user_type")
+  avatarUrl         String?    @map("avatar_url")
+  status            UserStatus @default(ACTIVE)
+  emailVerified     Boolean    @default(false) @map("email_verified")
+  emailVerifiedAt   DateTime?  @map("email_verified_at")
+  lastLoginAt       DateTime?  @map("last_login_at")
+  loginAttempts     Int        @default(0) @map("login_attempts")
+  lockedUntil       DateTime?  @map("locked_until")
+  passwordChangedAt DateTime   @default(now()) @map("password_changed_at")
+  twoFactorEnabled  Boolean    @default(false) @map("two_factor_enabled")
+  twoFactorSecret   String?    @map("two_factor_secret")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  farmer       Farmer?
+  buyer        Buyer?
+  admin        Admin?
+  sessions     UserSession[]
+  auditLogs    AuditLog[]
+  
+  @@map("users")
+}
+
+model Farmer {
+  id          String     @id @default(cuid())
+  userId      String     @unique @map("user_id")
+  farmName    String     @map("farm_name")
+  location    String
+  description String
+  rating      Float      @default(0)
+  totalSales  Int        @default(0) @map("total_sales")
+  verified    Boolean    @default(false)
+  status      UserStatus @default(PENDING)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("farmers")
+}
+
+model Buyer {
+  id        String     @id @default(cuid())
+  userId    String     @unique @map("user_id")
+  address   String
+  phone     String
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("buyers")
+}
+
+model Admin {
+  id          String    @id @default(cuid())
+  userId      String    @unique @map("user_id")
+  role        AdminRole @default(MODERATOR)
+  permissions String[]
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admins")
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  ipAddress String   @map("ip_address")
+  userAgent String   @map("user_agent")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  action    String
+  resource  String
+  details   Json?
+  ipAddress String   @map("ip_address")
+  userAgent String   @map("user_agent")
+  timestamp DateTime @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
