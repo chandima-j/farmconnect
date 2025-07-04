@@ -3,11 +3,21 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+function getPassword(envVar: string, fallback: string, label: string) {
+  if (process.env[envVar]) return process.env[envVar] as string;
+  console.warn(`⚠️  WARNING: No ${label} password set in .env. Using fallback password. Set ${envVar} in your .env for better security!`);
+  return fallback;
+}
+
 async function main() {
   console.log('🌱 Seeding database...');
 
+  // Use environment variables for passwords
+  const adminPassword = await bcrypt.hash(getPassword('ADMIN_PASSWORD', 'ChangeMeAdmin!2024', 'admin'), 12);
+  const farmerPassword = await bcrypt.hash(getPassword('FARMER_PASSWORD', 'ChangeMeFarmer!2024', 'farmer'), 12);
+  const buyerPassword = await bcrypt.hash(getPassword('BUYER_PASSWORD', 'ChangeMeBuyer!2024', 'buyer'), 12);
+
   // Create admin user
-  const adminPassword = await bcrypt.hash('admin123', 12);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@farmconnect.com' },
     update: {},
@@ -27,7 +37,6 @@ async function main() {
   });
 
   // Create test farmer
-  const farmerPassword = await bcrypt.hash('farmer123', 12);
   const farmer = await prisma.user.upsert({
     where: { email: 'farmer@test.com' },
     update: {},
@@ -52,7 +61,6 @@ async function main() {
   });
 
   // Create test buyer
-  const buyerPassword = await bcrypt.hash('buyer123', 12);
   const buyer = await prisma.user.upsert({
     where: { email: 'buyer@test.com' },
     update: {},
