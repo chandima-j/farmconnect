@@ -193,6 +193,9 @@ router.post('/login',
   validateInput(loginSchema),
   async (req, res) => {
   try {
+      // Debug logging
+      console.log('LOGIN BODY:', req.body);
+      console.log('LOGIN HEADERS:', req.headers);
       const { email, password } = req.body;
 
       // Find user with related data (case-insensitive email)

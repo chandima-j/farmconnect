@@ -100,13 +100,18 @@ class SecureApiClient {
     
     // Always get the latest token from localStorage
     const token = localStorage.getItem('farmconnect_token');
+    const method = options.method ? options.method.toUpperCase() : 'GET';
+    // Use Headers API to guarantee Content-Type
+    const headers = new Headers(options.headers || {});
+    if (method === 'POST' || method === 'PUT') {
+      headers.set('Content-Type', 'application/json');
+    }
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
     const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
       ...options,
+      headers,
       body: sanitizedBody,
     };
 
@@ -185,12 +190,21 @@ class SecureApiClient {
     const sanitizedEmail = email.toLowerCase().trim();
     const sanitizedPassword = password.trim();
 
+    // Fetch CSRF token
+    const csrfRes = await fetch(`${this.baseURL}/csrf-token`, { credentials: 'include' });
+    if (!csrfRes.ok) throw new Error('Failed to fetch CSRF token');
+    const { csrfToken } = await csrfRes.json();
+
     const response = await this.request<{ token: string; user: any }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ 
         email: sanitizedEmail, 
         password: sanitizedPassword 
       }),
+      headers: {
+        'X-CSRF-Token': csrfToken,
+      },
+      credentials: 'include',
     });
     
     if (response.token) {

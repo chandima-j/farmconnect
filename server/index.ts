@@ -1,6 +1,6 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
-import { applySecurityMiddleware } from './middleware/security.js';
+import { applySecurityMiddleware, csrfProtection, csrfErrorHandler } from './middleware/security.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import productRoutes from './routes/products.js';
@@ -33,6 +33,18 @@ app.use(cors({
 // Add cookie-parser middleware
 app.use(cookieParser());
 
+// Body parsing middleware with size limits (must come before csrfProtection)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// CSRF protection (must come after cookie-parser and body parsers, before routes)
+app.use(csrfProtection);
+
+// Expose CSRF token for frontend (if needed)
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
+
 // Apply comprehensive security middleware (ISO/IEC 27001/27002 compliance)
 applySecurityMiddleware(app);
 
@@ -43,10 +55,6 @@ const globalLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use(globalLimiter);
-
-// Body parsing middleware with size limits
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Apply rate limiting to auth routes (stricter)
 const authLimiter = rateLimit({
@@ -78,6 +86,7 @@ app.use('/api/*', (req, res) => {
 });
 
 // Global error handling middleware (ISO/IEC 27002 A.12.2.1)
+app.use(csrfErrorHandler);
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled error:', err);
   

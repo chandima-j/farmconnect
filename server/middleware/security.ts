@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import cors from 'cors';
 import { z } from 'zod';
+import csurf from 'csurf';
 
 // Rate limiting configuration (ISO/IEC 27002 A.9.4.1)
 export const createRateLimit = (windowMs: number, max: number, message: string) => {
@@ -25,7 +26,7 @@ export const createRateLimit = (windowMs: number, max: number, message: string) 
 // Specific rate limits for different endpoints
 export const authRateLimit = createRateLimit(
   15 * 60 * 1000, // 15 minutes
-  5, // 5 attempts
+  15, // 15 attempts
   'Too many authentication attempts. Please try again later.'
 );
 
@@ -174,8 +175,21 @@ export const sanitizeLogs = (req: express.Request, res: express.Response, next: 
   next();
 };
 
+// CSRF protection middleware (cookie-based)
+export const csrfProtection = csurf({ cookie: true });
+
+// CSRF error handler
+export const csrfErrorHandler = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err.code !== 'EBADCSRFTOKEN') return next(err);
+  // CSRF token errors
+  res.status(403).json({ error: 'Invalid CSRF token' });
+};
+
 // Apply all security middleware
 export const applySecurityMiddleware = (app: express.Application) => {
+  // Disable X-Powered-By header
+  app.disable('x-powered-by');
+
   // Security headers
   app.use(securityHeaders);
   
