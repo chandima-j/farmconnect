@@ -3,19 +3,18 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-function getPassword(envVar: string, fallback: string, label: string) {
+function getPassword(envVar: string, label: string) {
   if (process.env[envVar]) return process.env[envVar] as string;
-  console.warn(`⚠️  WARNING: No ${label} password set in .env. Using fallback password. Set ${envVar} in your .env for better security!`);
-  return fallback;
+  throw new Error(`❌ ERROR: No ${label} password set in .env. Set ${envVar} in your .env for seeding!`);
 }
 
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // Use environment variables for passwords
-  const adminPassword = await bcrypt.hash(getPassword('ADMIN_PASSWORD', 'ChangeMeAdmin!2024', 'admin'), 12);
-  const farmerPassword = await bcrypt.hash(getPassword('FARMER_PASSWORD', 'ChangeMeFarmer!2024', 'farmer'), 12);
-  const buyerPassword = await bcrypt.hash(getPassword('BUYER_PASSWORD', 'ChangeMeBuyer!2024', 'buyer'), 12);
+  // Require environment variables for passwords
+  const adminPassword = await bcrypt.hash(getPassword('ADMIN_PASSWORD', 'admin'), 12);
+  const farmerPassword = await bcrypt.hash(getPassword('FARMER_PASSWORD', 'farmer'), 12);
+  const buyerPassword = await bcrypt.hash(getPassword('BUYER_PASSWORD', 'buyer'), 12);
 
   // Create admin user
   const admin = await prisma.user.upsert({
@@ -128,10 +127,11 @@ async function main() {
   }
 
   console.log('✅ Database seeded successfully!');
-  console.log('🔑 Test accounts:');
-  console.log('   Admin: admin@farmconnect.com / admin123');
-  console.log('   Farmer: farmer@test.com / farmer123');
-  console.log('   Buyer: buyer@test.com / buyer123');
+  console.log('🔑 Test accounts created with passwords from .env:');
+  console.log('   Admin: admin@farmconnect.com');
+  console.log('   Farmer: farmer@test.com');
+  console.log('   Buyer: buyer@test.com');
+  console.log('📝 Check your .env file for the actual passwords used.');
 }
 
 main()
